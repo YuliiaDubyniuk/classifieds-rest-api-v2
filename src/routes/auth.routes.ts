@@ -7,6 +7,7 @@ import {
   getMe,
 } from "../controllers/auth.controller.ts";
 import { validateBody } from "../middleware/validate.ts";
+import authLimiter from "../middleware/rateLimiter.js";
 import {
   registerSchema,
   loginSchema,
@@ -117,6 +118,8 @@ registry.registerPath({
 });
 
 const router = Router();
+
+router.use(authLimiter);
 
 router.post("/register", validateBody(registerSchema), register);
 router.post("/login", validateBody(loginSchema), login);

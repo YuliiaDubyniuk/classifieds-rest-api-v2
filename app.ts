@@ -1,3 +1,5 @@
+import helmet from "helmet";
+import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -5,9 +7,19 @@ import cookieParser from "cookie-parser";
 import { generateOpenApiDocument } from "./src/openapi.ts";
 import authRouter from "./src/routes/auth.routes.ts";
 import announcementsRouter from "./src/routes/announcements.routes.ts";
+import { pinoHttp } from "pino-http";
+import logger from "./src/logger.ts";
 
 const app = express();
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
+app.use(pinoHttp({ logger }));
+app.use(helmet());
+app.use(
+  cors({
+    origin: allowedOrigins,
+  }),
+);
 app.use(express.json());
 app.use(cookieParser());
 

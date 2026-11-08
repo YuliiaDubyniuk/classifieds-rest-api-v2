@@ -19,6 +19,7 @@ import {
 } from "../validators/announcements.validator.ts";
 import { registry } from "../openapi.ts";
 import { authenticate } from "../middleware/authenticate.ts";
+import upload from "../middleware/upload.ts";
 
 registry.registerPath({
   method: "get",
@@ -68,8 +69,24 @@ registry.registerPath({
   request: {
     body: {
       content: {
-        "application/json": {
-          schema: createAnnouncementSchema,
+        "multipart/form-data": {
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              description: { type: "string" },
+              price: { type: "number" },
+              category: {
+                type: "string",
+                enum: ["sale", "service", "job", "other"],
+              },
+              image: {
+                type: "string",
+                format: "binary",
+              },
+            },
+            required: ["title", "description", "price", "category"],
+          },
         },
       },
     },
@@ -97,8 +114,23 @@ registry.registerPath({
     params: announcementIdSchema,
     body: {
       content: {
-        "application/json": {
-          schema: updateAnnouncementSchema,
+        "multipart/form-data": {
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              description: { type: "string" },
+              price: { type: "number" },
+              category: {
+                type: "string",
+                enum: ["sale", "service", "job", "other"],
+              },
+              image: {
+                type: "string",
+                format: "binary",
+              },
+            },
+          },
         },
       },
     },
@@ -157,6 +189,7 @@ router.get("/:id", validateParams(announcementIdSchema), getAnnouncementById);
 router.post(
   "/",
   authenticate,
+  upload.single("image"),
   validateBody(createAnnouncementSchema),
   createAnnouncement,
 );
@@ -164,6 +197,7 @@ router.patch(
   "/:id",
   authenticate,
   validateParams(announcementIdSchema),
+  upload.single("image"),
   validateBody(updateAnnouncementSchema),
   updateAnnouncement,
 );

@@ -8,6 +8,7 @@ import type {
   LoginInput,
   RefreshInput,
 } from "../validators/auth.validator.ts";
+import logger from "../logger.ts";
 
 export const register: RequestHandler = async (req, res) => {
   const { username, email, password, name } = req.body as RegisterInput;
@@ -75,6 +76,8 @@ export const register: RequestHandler = async (req, res) => {
       userId: user.id,
     },
   });
+
+  logger.info({ userId: user.id }, "New user registered");
 
   res.status(201).json({
     user,
@@ -144,6 +147,8 @@ export const login: RequestHandler = async (req, res) => {
       },
     });
   });
+
+  logger.info({ userId: user.id }, "User logged in");
 
   // Return user data and tokens
   res.status(200).json({

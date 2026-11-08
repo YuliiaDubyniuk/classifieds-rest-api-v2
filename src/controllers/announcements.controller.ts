@@ -1,3 +1,4 @@
+import { unlink } from "node:fs/promises";
 import type { RequestHandler } from "express";
 import prisma from "../../prisma/client.ts";
 import type {
@@ -5,6 +6,14 @@ import type {
   CreateAnnouncementInput,
   UpdateAnnouncementInput,
 } from "../validators/announcements.validator.ts";
+import logger from "../logger.ts";
+import { v2 as cloudinary } from "cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export const getAnnouncements: RequestHandler = async (req, res) => {
   const { page, search, sort } = res.locals
@@ -86,6 +95,21 @@ export const createAnnouncement: RequestHandler = async (req, res) => {
     req.body as CreateAnnouncementInput;
 
   const userId = req.user!.sub;
+  let imageUrl: string | undefined;
+
+  if (req.file) {
+    try {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "announcements",
+      });
+
+      imageUrl = result.secure_url;
+
+      logger.info({ userId, imageUrl }, "Announcement photo uploaded");
+    } finally {
+      await unlink(req.file.path);
+    }
+  }
 
   const announcement = await prisma.announcement.create({
     data: {
@@ -94,6 +118,7 @@ export const createAnnouncement: RequestHandler = async (req, res) => {
       price,
       category,
       userId,
+      imageUrl,
     },
     include: {
       user: {
@@ -106,6 +131,14 @@ export const createAnnouncement: RequestHandler = async (req, res) => {
       },
     },
   });
+
+  logger.info(
+    {
+      announcementId: announcement.id,
+      userId: announcement.userId,
+    },
+    "Announcement created",
+  );
 
   res.status(201).json(announcement);
 };
@@ -128,9 +161,38 @@ export const updateAnnouncement: RequestHandler = async (req, res) => {
     return;
   }
 
+  if (Object.keys(data).length === 0 && !req.file) {
+    res.status(400).json({
+      error: "At least one field or image must be provided",
+    });
+    return;
+  }
+
+  let imageUrl: string | undefined;
+
+  if (req.file) {
+    try {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "announcements",
+      });
+
+      imageUrl = result.secure_url;
+
+      logger.info(
+        { announcementId: id, imageUrl },
+        "Announcement photo uploaded",
+      );
+    } finally {
+      await unlink(req.file.path);
+    }
+  }
+
   const updatedAnnouncement = await prisma.announcement.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      ...(imageUrl && { imageUrl }),
+    },
     include: {
       user: {
         select: {
