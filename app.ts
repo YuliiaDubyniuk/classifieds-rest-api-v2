@@ -11,13 +11,20 @@ import { pinoHttp } from "pino-http";
 import logger from "./src/logger.ts";
 
 const app = express();
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+const allowedOrigins =
+  process.env.ALLOWED_ORIGINS?.split(",").map((origin) => origin.trim()) || [];
 
 app.use(pinoHttp({ logger }));
 app.use(helmet());
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS: Origin not allowed"));
+    },
   }),
 );
 app.use(express.json());
@@ -37,6 +44,12 @@ app.use((_req: Request, res: Response) => {
 // Error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
+
+  if (err.message === "CORS: Origin not allowed") {
+    return res.status(403).json({
+      error: "Origin not allowed",
+    });
+  }
 
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({
